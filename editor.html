@@ -1,0 +1,343 @@
+<html>
+    <head>
+        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+        <link href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+        <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="pelemele.js"></script>
+        <link rel="stylesheet" href="pelemele.css">
+        <script type="text/javascript">
+            $(function() {
+               /*
+                * TODOs:
+                * optional datauri generation for images
+                * templates with non modifiable elements
+                * anonymous gists
+                * shapes (Raphael)
+                * prefined styles in /styles/*
+                * data server in /data/*
+                * image cache ?
+                * markdown for text
+                * text: padding, font-size, ...
+                * multiple selection + move/delete
+                * share
+                * clone
+                * templates
+                * dropbox/github/google drive/webDAV-HTTP
+                * actions depend on storage type (save, clone, copy, ...)
+                * password-protected save
+                * background color for frame
+                * auto refresh
+                * buttons (Bootstrap) ?
+                * catalogue: localStorage/github scan
+                * refactor
+                * CSS classes
+                * finite state machine (machina.js ?)
+                * allow text copy in normal mode
+                * logo github: connect / gravatar: disconnect
+                * modules integration on same host ? (todos, linklist, gallery, charting engine, ...)
+                */
+
+                // Parse URL -------------------------------------------------------
+                //var parts = window.location.href.match(/(https?:\/\/[^\/\s]*)\/(.*)\/([^\/]+)/),
+                var parts = window.location.href.match(/(https?:\/\/[^\/\s]*)\/([^\?]*)(\?id=local\-(.+))?/),
+                    id = parts[4];
+
+                // create model
+                var pm = Pelemele.create(id ? JSON.parse(localStorage.getItem('pelemele-'+id)) : {});
+
+                // handle change notification
+                pm.bind('modified', (function() {
+                    var tid;
+                    return function() {
+                        if (tid) { clearTimeout(tid); }
+                        tid = setTimeout(function() {
+                            console.log(pm.snapshot());
+                            tid = null;
+                        }, 5000);
+                    };
+                })());
+
+                // use whole document body as container
+                var $db = $(document.body);
+
+                // render pelemele instance
+                Pelemele.view({pelemele: pm, container: $db, step: 4});
+
+                // install sample editor
+                (function(pelemele, $cont) {
+                    // create overlay and prevent some default behaviours
+                    var $overlay = $('<div/>').attr('id', 'overlay').hide().appendTo($cont);
+                    $overlay.on('mousedown mousewheel', function(e) {
+                        e.preventDefault();
+                    });
+        
+                    // selection management
+                    (function() {
+                        var selected;
+                        $overlay.on('click', function(e) {
+                            if (selected) {
+                                $(selected).removeClass('selected');
+                            }
+                            if (e.target == $overlay.get(0)) {
+                                selected = null;
+                            } else {
+                                selected = e.target;
+                                $(selected).addClass('selected');
+                            }
+                        });
+                    })();
+        
+                    // model-controller bindings
+                    var addMask = function(frame) {
+                        // create mask DOM node
+                        var $mask = $('<div/>').addClass('mask').appendTo($overlay);
+                        // handle drag/resize events
+                        $mask.on('mousedown', function(e) {
+                            var mx = e.pageX, my = e.pageY;
+                            var dx1 = mx-frame.al(), dy1 = my-frame.at();
+                            var dx2 = frame.ar()-mx, dy2 = frame.ab()-my;
+                            var moving = (dx2 > 10 || dy2 > 10);
+                            var mm = function(e) {
+                                mx = e.pageX;
+                                my = e.pageY;
+                                if (moving) {
+                                    frame.al(mx-dx1).at(my-dy1);
+                                }
+                                frame.ar(mx+dx2).ab(my+dy2);
+                            };
+                            var mu = function() {
+                                $overlay.off('mousemove', mm).off('mouseup', mu);
+                            };
+                            $overlay.on('mousemove', mm).on('mouseup', mu);
+                            e.preventDefault();
+                        });
+                        $mask.dblclick(function() {
+                            editor('Edit '+frame.template_id(), frame.data().snapshot(), function(data) {
+                                frame.data().set(data);
+                            }, function() {
+                                pm.frames().remove(frame);
+                            });
+                        });
+                        // bind frame to mask
+                        var update = function() {
+                            var l = frame.al(), t = frame.at(), w = frame.ar()-l, h = frame.ab()-t;
+                            $mask.width(w).height(h).css({left: l, top: t});
+                        };
+                        frame
+                        .bind('modified', update)
+                        .bind('removed', function() {
+                            $mask.remove();
+                        });
+                        update();
+                    };
+                    pelemele.frames()
+                    .bind('elementAdded', function(e, frame) { // create HTML mask when frame is added to pelemele
+                        addMask(frame);
+                    })
+                    .each(function(frame) { // create masks for frames already present in pelemele
+                        addMask(frame);
+                    });
+            
+                    // drag 'n drop management
+                    /*var noop = function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    };
+                    $dom.on({
+                        'dragstart dragenter dragleave dragover dragend drop': noop,
+                        'drop': function(e) {
+                            noop(e);
+                            var link = e.originalEvent.dataTransfer.getData('text/uri-list');
+                            view.frames().add({
+                                left: {type: HA.prop, value: 0.45},
+                                top: {type: VA.prop, value: 0.45},
+                                right: {type: HA.prop, value: 0.55},
+                                bottom: {type: VA.prop, value: 0.55},
+                                template_id: 'iframe',
+                                data: {uri: 'http://crobs-server.philou.c9.io/g2697972'}
+                            });
+                        }
+                    });*/
+
+                    // modal windows
+                    var $modal = $('#modal');
+                    $modal.modal({backdrop: false, show: false});
+                    // bind cancel handler
+                    $('#modal_cancel').on('click', function() {
+                        $modal.modal('hide');
+                    });
+                    var editor = function(title, data, onsave, ondelete) {
+                        // set title
+                        $modal.find('.modal-title').text(title);
+                        // show delete button if necessary
+                        if (ondelete) {
+                            $('#modal_delete').off('click').on('click', function() {
+                                ondelete();
+                                $modal.modal('hide');
+                            }).show();
+                        } else {
+                            $('#modal_delete').hide();
+                        }
+                        // set fields initial value
+                        $modal.find('.form-group').hide();
+                        for (var prop in data) {
+                            $modal.find('#fg_'+prop).show().find('.form-control').val(data ? data[prop] : '');
+                        }
+                        // bind save handler
+                        $('#modal_save').off('click').on('click', function save() {
+                            var data = {};
+                            $modal.find('.form-control:visible').each(function() {
+                                data[$(this).attr('id').substr(5)] = $(this).val();
+                            });
+                            onsave(data); // TODO: get data from form inputs
+                            $modal.modal('hide');
+                        });
+                        // show modal
+                        $modal.modal('show');
+                    };
+
+                    // install menu
+                    (function() {
+                        // menu bar
+                        var tid;
+                        var $menu = $('#menu')
+                        .on('mouseleave', function() {
+                            tid = setTimeout(function() {
+                                rearm();
+                            }, 500);
+                        })
+                        .on('mouseenter', function() {
+                            clearTimeout(tid);
+                        })
+                        .appendTo($db); // place it on top
+
+                        var rearm = function() {
+                            $menu.removeClass('open');
+                            $cont.on('mousemove', function mm(e) {
+                                if (e.pageY < 20) {
+                                    $menu.addClass('open');
+                                    $cont.off('mousemove', mm);
+                                }
+                            });
+                        };
+                        rearm();
+
+                        // "Edit" button
+                        $('#edit').on('click', function() {
+                            $overlay.toggle();
+                            $('.edit').toggle()
+                            $(this).toggleClass('active');
+                        });
+                        $('#new, #edit, #save').on('focus', function() {
+                            $(this).blur();
+                        });
+
+                        // hide 
+                        $('.edit').hide();
+
+                        // creation buttons
+                        var create_frame = function(w, h, template_id, data) {
+                            pm.frames().add(function(frame) {
+                                var cx = $db.width()/2, cy = $db.height()/2;
+                                frame.left().type(Pelemele.HA.left).value(cx-w/2);
+                                frame.right().type(Pelemele.HA.left).value(cx+w/2);
+                                frame.top().type(Pelemele.VA.top).value(cy-h/2);
+                                frame.bottom().type(Pelemele.VA.top).value(cy+h/2);
+                                frame.template_id(template_id);
+                                frame.data().set(data);
+                                return frame;
+                            });
+                        };
+                        $('#new_iframe').on('click', function() {
+                            editor('New iframe', {uri: ''}, function(data) {
+                                create_frame(300, 300, 'iframe', data);
+                            });
+                        });
+                        $('#new_image').on('click', function() {
+                            editor('New image', {uri: '', title: '', link: ''}, function(data) {
+                                create_frame(200, 200, 'image', data);
+                            });
+                        });
+                        $('#new_label').on('click', function() {
+                            editor('New label', {title: '', link: ''}, function(data) {
+                                create_frame(200, 50, 'flabel', data);
+                            });
+                        });
+                        $('#new_text').on('click', function() {
+                            editor('New text', {text: ''}, function(data) {
+                                create_frame(300, 400, 'text', data);
+                            });
+                        });
+                        $('#new_shape').on('click', function() {
+                        });
+                        $('#save').on('click', function() {
+                            if (!id) {
+                                id = ''+Date.now();
+                            }
+                            localStorage.setItem('pelemele-'+id, JSON.stringify(pm.snapshot()));
+                            window.location = parts[1]+'/'+parts[2]+'?id=local-'+id;
+                        });
+                    })();
+                })(pm, $db);
+            });
+        </script>
+    </head>
+    <body>
+        <div id="menu">
+            <button type="button" id="new" title="New pelemele" class="btn btn-primary btn-xs"><span class="glyphicon glyphicon-unchecked"></span>New</button>
+            <button type="button" id="edit" title="Toggle edit mode" class="btn btn-primary btn-xs"><span class="glyphicon glyphicon-edit"></span>Edit</button>
+            <!--<button type="button" id="edit" title="Edit global settings" class="btn btn-xs edit"><span class="glyphicon glyphicon-wrench"></span>Settings</button>-->
+            <div class="btn-group edit">
+                <button type="button" id="new_iframe" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-share"></span>iframe</button>
+                <button type="button" id="new_image" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-picture"></span>image</button>
+                <button type="button" id="new_label" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-font"></span>label</button>
+                <button type="button" id="new_text" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-align-center"></span>text</button>
+                <button type="button" id="new_shape" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span>shape</button>
+            </div>
+            <button type="button" id="save" title="Save pelemele" class="btn btn-success btn-xs edit"><span class="glyphicon glyphicon-cloud-upload"></span>Save</button>
+        </div>
+        <div class="modal fade" id="modal">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <h4 class="modal-title" id="myModalLabel"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <form class="form-horizontal" role="form">
+                            <div class="form-group" id="fg_uri">
+                                <label for="form_uri" class="col-sm-2 control-label">URL</label>
+                                <div class="col-sm-10">
+                                    <input type="url" class="form-control" id="form_uri" placeholder="URL">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_title">
+                                <label for="form_title" class="col-sm-2 control-label">Title</label>
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="form_title" placeholder="title">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_link">
+                                <label for="form_link" class="col-sm-2 control-label">Link</label>
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="form_link" placeholder="URL">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_text">
+                                <label for="form_text" class="col-sm-2 control-label">Text</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="form_text" rows="10"></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="modal_delete" class="btn btn-danger">Delete</button>
+                        <button type="button" id="modal_cancel" class="btn btn-default">Close</button>
+                        <button type="button" id="modal_save" class="btn btn-primary">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
