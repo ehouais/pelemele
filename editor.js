@@ -3,9 +3,10 @@ require.config({paths: {
     observable  : 'https://raw.github.com/ehouais/jsutils/master/src/observable',
     factory     : 'https://raw.github.com/ehouais/jsutils/master/src/factory',
     fsm         : 'https://raw.github.com/ehouais/jsutils/master/src/fsm',
-    datastores  : 'https://raw.github.com/ehouais/jsutils/master/src/datastores'
+    datastores  : 'https://raw.github.com/ehouais/jsutils/master/src/datastores',
+    pelemele    : 'https://raw.github.com/ehouais/pelemele/master/pelemele'
 }});
-require(['jquery', 'pelemele.js', 'core', 'observable', 'datastores', 'fsm'], function($, Pelemele, core, observable, Datastores, FSM) {
+require(['jquery', 'pelemele', 'core', 'observable', 'datastores', 'fsm'], function($, Pelemele, core, observable, Datastores, FSM) {
     $(function() {
         var pm; // Pelemele instance
         var $container = $('#editor');
