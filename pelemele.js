@@ -136,6 +136,21 @@ define(['jquery', 'core', 'observable', 'factory'], function($, core, observable
             e.preventDefault();
         });
 
+        var pelemele,
+            selection = [],
+            shifted = false;
+
+        $(document).keydown(function(e) {
+            shifted = e.shiftKey;
+            if (e.keyCode == 46) {
+                selection.forEach(function(frame) {
+                    pelemele.frames().remove(frame);
+                });
+            }
+        }).keyup(function(e) {
+            shifted = false;
+        });
+
         var addmask = function(frame) { // create masks for frames already present in pelemele
             // create mask DOM node
             var $mask = $('<div/>').addClass('mask').appendTo($overlay);
@@ -167,7 +182,27 @@ define(['jquery', 'core', 'observable', 'factory'], function($, core, observable
                 $overlay.on('mousemove', mm).on('mouseup', mu);
                 e.preventDefault();
             });
-            $mask.dblclick(function() {
+
+
+            $mask.on('click', function() {
+                var index = selection.indexOf(frame),
+                    changed = false;
+                if (shifted || selection.length !=1 || index == -1) {
+                    if (!shifted) {
+                        $overlay.find('.mask').removeClass('selected');
+                        selection = [frame];
+                        $mask.addClass('selected');
+                    } else if (index == -1) {
+                        selection.push(frame); 
+                        $mask.addClass('selected');
+                    } else {
+                        selection.splice(index, 1);
+                        $mask.removeClass('selected');
+                    }
+                    co.trigger('selectionChanged', [selection]);
+                }
+            });
+            $mask.on('dblclick', function() {
                 co.trigger('doubleclicked', [frame]);
             });
             // bind frame to mask
@@ -185,7 +220,8 @@ define(['jquery', 'core', 'observable', 'factory'], function($, core, observable
         };
 
         var co = observable();
-        co.set = function(pelemele) {
+        co.set = function(pminst) {
+            pelemele = pminst;
             pelemele.frames()
             .each(addmask)
             .bind('elementAdded', function(e, frame) { // create HTML mask when frame is added to pelemele
