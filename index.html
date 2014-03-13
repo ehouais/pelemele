@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/require-jquery/0.25.0/require-jquery.min.js"></script>
+        <link href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+        <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/history.js/1.8/native.history.min.js"></script>
+        <link rel="stylesheet" href="editor.css">
+        <script src="editor.js"></script>
+    </head>
+    <body>
+        <div id="editor"></div>
+        <div id="menumask"></div>
+        <div id="menu">
+            <button type="button" id="new" title="New pelemele" class="btn btn-primary btn-xs">New</button>
+            <button type="button" id="clone" title="Clone current pelemele" class="btn btn-primary btn-xs">Clone</button>
+            <button type="button" id="home" title="Go to home page" class="btn btn-primary btn-xs">Home</button>
+            <button type="button" id="save" title="Save modifications" class="btn btn-success btn-xs edit">Save</button>
+            <button type="button" id="cancel" title="Cancel modifications" class="btn btn-success btn-xs edit">Cancel</button>
+            <button type="button" id="publish" title="Publish pelemele" class="btn btn-success btn-xs edit">Publish</button>
+            <div id="palette" class="btn-group edit">
+                <button type="button" data-action="iframe" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-share"></span>iframe</button>
+                <button type="button" data-action="image" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-picture"></span>image</button>
+                <button type="button" data-action="label" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-font"></span>label</button>
+                <button type="button" data-action="text" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-align-center"></span>text</button>
+                <button type="button" data-action="shape" class="btn btn-default btn-xs"><span class="glyphicon glyphicon-pencil"></span>shape</button>
+            </div>
+        </div>
+        <div class="modal fade" id="modal">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <h4 class="modal-title" id="myModalLabel"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <form class="form-horizontal" role="form">
+                            <div class="form-group" id="fg_uri">
+                                <label for="form_uri" class="col-sm-2 control-label">URL</label>
+                                <div class="col-sm-10">
+                                    <input type="url" class="form-control" id="form_uri" placeholder="URL">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_title">
+                                <label for="form_title" class="col-sm-2 control-label">Title</label>
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="form_title" placeholder="title">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_link">
+                                <label for="form_link" class="col-sm-2 control-label">Link</label>
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="form_link" placeholder="URL">
+                                </div>
+                            </div>
+                            <div class="form-group" id="fg_text">
+                                <label for="form_text" class="col-sm-2 control-label">Text</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="form_text" rows="10"></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="modal_cancel" class="btn btn-default">Close</button>
+                        <button type="button" id="modal_save" class="btn btn-primary">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
