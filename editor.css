@@ -61,6 +61,9 @@ body {
 .mask:hover, .mask.editing {
     background-color: rgba(255, 0, 0, 0.5);
 }
+.mask.selected {
+    background-color: rgba(255, 0, 0, 1);
+}
 #dialog {
     position: absolute;
     top: 200px;
