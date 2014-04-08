@@ -3,10 +3,9 @@ require.config({paths: {
     observable  : 'https://raw.github.com/ehouais/jsutils/master/src/observable',
     factory     : 'https://raw.github.com/ehouais/jsutils/master/src/factory',
     fsm         : 'https://raw.github.com/ehouais/jsutils/master/src/fsm',
-    datastores  : 'https://raw.github.com/ehouais/jsutils/master/src/datastores',
     pelemele    : 'https://raw.github.com/ehouais/pelemele/master/pelemele'
 }});
-require(['jquery', 'pelemele', 'core', 'observable', 'datastores', 'fsm'], function($, Pelemele, core, observable, Datastores, FSM) {
+require(['jquery', 'pelemele', 'core', 'observable', 'fsm'], function($, Pelemele, core, observable, FSM) {
     $(function() {
         var pm; // Pelemele instance
         var $container = $('#editor');
@@ -149,17 +148,17 @@ require(['jquery', 'pelemele', 'core', 'observable', 'datastores', 'fsm'], funct
             home();
         });
         $('#save').on('click', function() {
-            if (store && store.save) {
-                store.save(id, pm.snapshot()).done(function() {
-                    appstate.transition('save');
-                });
-            } else {
-                // let user choose store
-                // create new entry in store
-                // get new entry's id
-                // redirect to proper URL
-                // TODO
-            }
+            $.ajax({
+                url: uri,
+                type: 'PUT',
+                contentType: 'text/plain',
+                data: JSON.stringify(pm.snapshot()),
+                xhrFields: {withCredentials: true}
+            }).done(function() {
+                appstate.transition('save');
+            }).fail(function(request, status, error) {
+                console.error(status+'-'+error);
+            });
         });
         $('#cancel').on('click', function() {
             // re-fetch data for current URI or init pelemele (new)
@@ -215,32 +214,23 @@ require(['jquery', 'pelemele', 'core', 'observable', 'datastores', 'fsm'], funct
 
         // extract data source information from URL ----------------
         var parser = document.createElement('a'),
-            parts, store, id;
+            parts, uri,
             home = function() {
                 window.location.href = parser.protocol+'//'+parser.host+parser.pathname;
             };
+
+        if (!localStorage.getItem('dataStoreUri')) {
+            localStorage.setItem('dataStoreUri', window.prompt('Data store URI ?'));
+        }
+        uri = localStorage.getItem('dataStoreUri');
+
         parser.href = window.location.href;
-        if (!parser.search) {
-            //store = {load: function(id) { return $.getJSON(id) }};
-            //id = 'homepage.json';
-            store = Datastores.http({collection: 'http://data.ehouais.net/pelemele', auth: true});
-            id = 'http://data.ehouais.net/pelemele/homepage';
-        } else if (parts = parser.search.match(/\?id=local\-(.+)/)) {
-            store = Datastores.local({prefix: 'pelemele'});
-            id = parts[1];
-        } else if (parts = parser.search.match(/\?id=ehouais\-(.+)/)) {
-            store = Datastores.http({collection: 'http://data.ehouais.net/pelemele', auth: true});
-            id = 'http://data.ehouais.net/pelemele/'+parts[1];
-        } else if (parts = parser.search.match(/\?id=gss\-(.+)/)) {
-            store = Datastores.gss({simpleSheet: true}),
-            id = parts[1];
-        } else {
-            // invalid URL => redirect to home page
-            home();
+        if (parser.search && (parts = parser.search.match(/\?id=(.+)/))) {
+            uri += '/'+parts[1];
         }
 
         // load data and init editor -------------------------------
-        store.load(id).done(function(data) {
+        $.ajax({url: uri, dataType: 'json', xhrFields: {withCredentials: true}}).done(function(data) {
             // check if pelemele is editable ?
             // TODO
             if (false/* public */) {
